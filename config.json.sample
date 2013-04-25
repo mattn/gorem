@@ -4,7 +4,7 @@
 		"root": "/app/",
 		"entries": [
 			{ "path": "/foo", "backend": "http://localhost:5003" },
-			{ "path": "/bar", "backend": "http://localhost:5004" }
+			{ "path": "/bar", "backend": "http://localhost:5004" },
 			{ "path": "/baz", "backend": "./" }
 		]
 	}
