@@ -22,10 +22,10 @@ type Entry struct {
 }
 
 type Config struct {
-	Entries []*Entry `json:"entries"`
-	Root     string `json:"root"`
-	Address  string `json:"address"`
-	FlagFile string `json:"flagfile"`
+	Entries  []*Entry `json:"entries"`
+	Root     string   `json:"root"`
+	Address  string   `json:"address"`
+	FlagFile string   `json:"flagfile"`
 }
 
 type Configs map[string]Config
