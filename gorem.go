@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -16,66 +15,94 @@ import (
 	"time"
 )
 
-type configs map[string]config
+type Entry struct {
+	Path    string `json:"path"`
+	Backend string `json:"backend"`
+	proxy   http.Handler
+}
 
-type config struct {
-	Entries []*struct {
-		Path    string `json:"path"`
-		Backend string `json:"backend"`
-		proxy   http.Handler
-	} `json:"entries"`
+type Config struct {
+	Entries []*Entry `json:"entries"`
 	Root     string `json:"root"`
 	Address  string `json:"address"`
 	FlagFile string `json:"flagfile"`
 }
 
+type Configs map[string]Config
+
 var configFile = flag.String("c", "config.json", "config file")
 
-func loadConfig() (configs, error) {
+func setupEntries(c *Config) {
+	for _, entry := range c.Entries {
+		u, err := url.Parse(entry.Backend)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		if u.Scheme == "" {
+			entry.proxy = http.FileServer(http.Dir(entry.Backend))
+		} else {
+			if !strings.HasPrefix(entry.Path, "/") {
+				entry.Path = path.Join(c.Root, "."+entry.Path)
+			} else {
+				entry.Path = path.Join(c.Root, entry.Path)
+			}
+			if !strings.HasSuffix(entry.Path, "/") {
+				entry.Path += "/"
+			}
+			u.Path = ""
+			u.RawQuery = ""
+			u.Fragment = ""
+			entry.Backend = u.String()
+			entry.proxy = httputil.NewSingleHostReverseProxy(u)
+		}
+	}
+}
+
+func updateConfig(c *Config, name string) error {
+	f, err := os.Open(*configFile)
+	if err != nil {
+		return err
+	}
+
+	var cl Configs
+	err = json.NewDecoder(f).Decode(&cl)
+	if err != nil {
+		return err
+	}
+
+	for k := range cl {
+		if k == name {
+			continue
+		}
+		*c = cl[k]
+		setupEntries(c)
+	}
+	return nil
+}
+
+func loadConfigs() (Configs, error) {
 	f, err := os.Open(*configFile)
 	if err != nil {
 		return nil, err
 	}
 
-	var c configs
-	err = json.NewDecoder(f).Decode(&c)
+	var cl Configs
+	err = json.NewDecoder(f).Decode(&cl)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, v := range c {
-		for _, entry := range v.Entries {
-			u, err := url.Parse(entry.Backend)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			if u.Scheme == "" {
-				entry.proxy = http.FileServer(http.Dir(entry.Backend))
-			} else {
-				if !strings.HasPrefix(entry.Path, "/") {
-					entry.Path = path.Join(v.Root, "."+entry.Path)
-				} else {
-					entry.Path = path.Join(v.Root, entry.Path)
-				}
-				if !strings.HasSuffix(entry.Path, "/") {
-					entry.Path += "/"
-				}
-				u.Path = ""
-				u.RawQuery = ""
-				u.Fragment = ""
-				entry.Backend = u.String()
-				entry.proxy = httputil.NewSingleHostReverseProxy(u)
-			}
-		}
+	for _, c := range cl {
+		setupEntries(&c)
 	}
-	return c, nil
+	return cl, nil
 }
 
 func main() {
 	flag.Parse()
 
-	c, err := loadConfig()
+	cl, err := loadConfigs()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,7 +112,7 @@ func main() {
 	go func() {
 		for _ = range sc {
 			log.Println("reloading configuration")
-			c, err = loadConfig()
+			cl, err = loadConfigs()
 			if err != nil {
 				log.Println(err)
 			}
@@ -95,28 +122,25 @@ func main() {
 	go func() {
 		tc := time.Tick(10 * time.Second)
 		for _ = range tc {
-			for _, v := range c {
-				if v.FlagFile == "" {
+			for k, c := range cl {
+				if c.FlagFile == "" {
 					continue
 				}
-				if b, err := ioutil.ReadFile(v.FlagFile); err == nil {
-					k := strings.TrimSpace(string(b))
-					os.Remove(v.FlagFile)
-					if _, ok := c[k]; ok {
-						if nc, err := loadConfig(); err == nil {
-							log.Printf("[%s] updated configuration", k)
-							c[k] = nc[k]
-						}
+				if _, err := os.Stat(c.FlagFile); err == nil {
+					os.Remove(c.FlagFile)
+					if ncl, err := loadConfigs(); err == nil {
+						log.Printf("[%s] updated configuration", k)
+						cl[k] = ncl[k]
 					}
 				}
 			}
 		}
 	}()
 
-	for k, v := range c {
+	for k, c := range cl {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			for _, entry := range v.Entries {
+			for _, entry := range c.Entries {
 				if strings.HasPrefix(r.URL.Path, entry.Path) {
 					forward := r.URL.Path[len(entry.Path)-1:]
 					log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, entry.Backend, forward)
@@ -128,12 +152,12 @@ func main() {
 			}
 			http.NotFound(w, r)
 		})
-		go func(mux *http.ServeMux, k string, v config) {
-			log.Printf("[%s] server %s started", k, v.Address)
-			if err = http.ListenAndServe(v.Address, mux); err != nil {
+		go func(mux *http.ServeMux, k string, c Config) {
+			log.Printf("[%s] server %s started", k, c.Address)
+			if err = http.ListenAndServe(c.Address, mux); err != nil {
 				log.Fatal(err)
 			}
-		}(mux, k, v)
+		}(mux, k, c)
 	}
 
 	quit := make(chan bool)
