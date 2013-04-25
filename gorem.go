@@ -39,18 +39,21 @@ func setupEntries(c *Config) {
 			log.Println(err)
 			continue
 		}
+		if !strings.HasPrefix(entry.Path, "/") {
+			entry.Path = path.Join(c.Root, "."+entry.Path)
+		} else {
+			entry.Path = path.Join(c.Root, entry.Path)
+		}
+		if !strings.HasSuffix(entry.Path, "/") {
+			entry.Path += "/"
+		}
 		if u.Scheme == "" {
+			if !strings.HasSuffix(entry.Backend, "/") {
+				entry.Backend += "/"
+			}
 			entry.proxy = http.FileServer(http.Dir(entry.Backend))
 		} else {
-			if !strings.HasPrefix(entry.Path, "/") {
-				entry.Path = path.Join(c.Root, "."+entry.Path)
-			} else {
-				entry.Path = path.Join(c.Root, entry.Path)
-			}
-			if !strings.HasSuffix(entry.Path, "/") {
-				entry.Path += "/"
-			}
-			u.Path = ""
+			u.Path = "/"
 			u.RawQuery = ""
 			u.Fragment = ""
 			entry.Backend = u.String()
@@ -142,7 +145,7 @@ func main() {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			for _, entry := range c.Entries {
 				if strings.HasPrefix(r.URL.Path, entry.Path) {
-					forward := r.URL.Path[len(entry.Path)-1:]
+					forward := r.URL.Path[len(entry.Path):]
 					log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, entry.Backend, forward)
 					r.URL.Path = forward
 					r.Header.Set("X-Script-Name", forward)
