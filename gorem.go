@@ -47,7 +47,7 @@ func setupEntries(c *Config) {
 		} else {
 			entry.Path = path.Join(c.Root, entry.Path)
 		}
-		if !strings.HasSuffix(entry.Path, "/") {
+		if !strings.HasSuffix(entry.Path, "/") && !entry.CGI {
 			entry.Path += "/"
 		}
 		if u.Scheme == "" {
