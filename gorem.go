@@ -5,11 +5,13 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"net/http/cgi"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -18,6 +20,7 @@ import (
 type Entry struct {
 	Path    string `json:"path"`
 	Backend string `json:"backend"`
+	CGI     bool   `json:"cgi"`
 	proxy   http.Handler
 }
 
@@ -48,10 +51,17 @@ func setupEntries(c *Config) {
 			entry.Path += "/"
 		}
 		if u.Scheme == "" {
-			if !strings.HasSuffix(entry.Backend, "/") {
-				entry.Backend += "/"
+			if entry.CGI {
+				entry.proxy = &cgi.Handler{
+					Path: entry.Backend,
+					Root: filepath.Dir(entry.Backend),
+				}
+			} else {
+				if !strings.HasSuffix(entry.Backend, "/") {
+					entry.Backend += "/"
+				}
+				entry.proxy = http.FileServer(http.Dir(entry.Backend))
 			}
-			entry.proxy = http.FileServer(http.Dir(entry.Backend))
 		} else {
 			u.Path = "/"
 			u.RawQuery = ""
