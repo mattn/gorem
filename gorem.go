@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"path"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -54,7 +53,7 @@ func setupEntries(c *Config) {
 			if entry.CGI {
 				entry.proxy = &cgi.Handler{
 					Path: entry.Backend,
-					Root: filepath.Dir(entry.Backend),
+					Root: entry.Path,
 				}
 			} else {
 				if !strings.HasSuffix(entry.Backend, "/") {
@@ -155,8 +154,17 @@ func main() {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			for _, entry := range cl[k].Entries {
 				if strings.HasPrefix(r.URL.Path, entry.Path) {
+					backend := entry.Backend
 					forward := r.URL.Path[len(entry.Path):]
-					log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, entry.Backend, forward)
+					if entry.CGI {
+						if strings.HasSuffix(backend, "/") {
+							entry.proxy.(*cgi.Handler).Path = backend + forward
+						}
+						if forward == "" {
+							forward = "/"
+						}
+					}
+					log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
 					r.URL.Path = forward
 					r.Header.Set("X-Script-Name", forward)
 					entry.proxy.ServeHTTP(w, r)
