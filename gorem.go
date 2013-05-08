@@ -153,17 +153,25 @@ func main() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			for _, entry := range cl[k].Entries {
-				if strings.HasPrefix(r.URL.Path, entry.Path) {
+				if entry.CGI {
 					backend := entry.Backend
 					forward := r.URL.Path[len(entry.Path):]
-					if entry.CGI {
+					if r.URL.Path == entry.Path {
 						if strings.HasSuffix(backend, "/") {
 							entry.proxy.(*cgi.Handler).Path = backend + forward
 						}
 						if forward == "" {
 							forward = "/"
 						}
+						log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
+						r.URL.Path = forward
+						r.Header.Set("X-Script-Name", forward)
+						entry.proxy.ServeHTTP(w, r)
+						return
 					}
+				} else if strings.HasPrefix(r.URL.Path, entry.Path) {
+					backend := entry.Backend
+					forward := r.URL.Path[len(entry.Path):]
 					log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
 					r.URL.Path = forward
 					r.Header.Set("X-Script-Name", forward)
