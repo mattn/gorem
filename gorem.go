@@ -156,7 +156,7 @@ func main() {
 				if entry.CGI {
 					backend := entry.Backend
 					forward := r.URL.Path[len(entry.Path):]
-					if r.URL.Path == entry.Path {
+					if r.URL.Path == entry.Path || strings.HasPrefix(r.URL.Path, entry.Path + "/") {
 						if strings.HasSuffix(backend, "/") {
 							entry.proxy.(*cgi.Handler).Path = backend + forward
 						}
