@@ -20,6 +20,7 @@ type Entry struct {
 	Path    string `json:"path"`
 	Backend string `json:"backend"`
 	CGI     bool   `json:"cgi"`
+	UsePath bool   `json:"use_path"`
 	proxy   http.Handler
 }
 
@@ -154,9 +155,12 @@ func main() {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			for _, entry := range cl[k].Entries {
 				if entry.CGI {
-					backend := entry.Backend
-					forward := r.URL.Path[len(entry.Path):]
 					if r.URL.Path == entry.Path || strings.HasPrefix(r.URL.Path, entry.Path + "/") {
+						backend := entry.Backend
+						forward := r.URL.Path
+						if entry.UsePath {
+							forward = forward[len(entry.Path):]
+						}
 						if strings.HasSuffix(backend, "/") {
 							entry.proxy.(*cgi.Handler).Path = backend + forward
 						}
@@ -171,7 +175,10 @@ func main() {
 					}
 				} else if strings.HasPrefix(r.URL.Path, entry.Path) {
 					backend := entry.Backend
-					forward := r.URL.Path[len(entry.Path):]
+					forward := r.URL.Path
+					if entry.UsePath {
+						forward = forward[len(entry.Path):]
+					}
 					log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
 					r.URL.Path = forward
 					r.Header.Set("X-Script-Name", forward)
