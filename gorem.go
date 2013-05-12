@@ -158,7 +158,7 @@ func main() {
 					if r.URL.Path == entry.Path || strings.HasPrefix(r.URL.Path, entry.Path + "/") {
 						backend := entry.Backend
 						forward := r.URL.Path
-						if entry.UsePath {
+						if !entry.UsePath {
 							forward = forward[len(entry.Path):]
 						}
 						if strings.HasSuffix(backend, "/") {
@@ -176,7 +176,7 @@ func main() {
 				} else if strings.HasPrefix(r.URL.Path, entry.Path) {
 					backend := entry.Backend
 					forward := r.URL.Path
-					if entry.UsePath {
+					if !entry.UsePath {
 						forward = forward[len(entry.Path):]
 					}
 					log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
