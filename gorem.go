@@ -156,19 +156,20 @@ func main() {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			for _, entry := range cl[k].Entries {
 				if entry.CGI {
-					if r.URL.Path == entry.Path || strings.HasPrefix(r.URL.Path, entry.Path + "/") {
-					println(r.URL.Path)
-					println("entry=", entry.Path)
+					if r.URL.Path == entry.Path || strings.HasPrefix(r.URL.Path, entry.Path) {
 						backend := entry.Backend
 						forward := r.URL.Path
 						if !entry.UsePath {
 							forward = forward[len(entry.Path):]
 						}
-						if strings.HasSuffix(backend, "/") {
-							entry.proxy.(*cgi.Handler).Path = backend + forward
+						if !strings.HasPrefix(forward, "/") {
+							forward = "/" + forward
 						}
 						if forward == "" {
 							forward = "/"
+						}
+						if strings.HasSuffix(backend, "/") {
+							entry.proxy.(*cgi.Handler).Path = backend + forward
 						}
 						log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
 						r.URL.Path = forward
