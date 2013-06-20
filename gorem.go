@@ -11,24 +11,26 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 )
 
 type Entry struct {
-	Path    string `json:"path"`
-	Backend string `json:"backend"`
-	CGI     bool   `json:"cgi"`
-	UsePath bool   `json:"use_path"`
-	proxy   http.Handler
+	Path     string `json:"path"`
+	Backend  string `json:"backend"`
+	CGI      bool   `json:"cgi"`
+	AheadCGI bool   `json:"ahead_cgi"`
+	UsePath  bool   `json:"use_path"`
+	proxy    http.Handler
 }
 
 type Config struct {
 	Entries  []*Entry `json:"entries"`
 	Root     string   `json:"root"`
 	Address  string   `json:"address"`
-	FlagFile string   `json:"flagfile"`
+	FlagFile string   `json:"flag_file"`
 }
 
 type Configs map[string]Config
@@ -170,6 +172,13 @@ func main() {
 						}
 						if strings.HasSuffix(backend, "/") {
 							entry.proxy.(*cgi.Handler).Path = backend + forward
+						}
+						if !entry.AheadCGI {
+							path := filepath.Join(filepath.Base(entry.Backend), forward)
+							if _, err := os.Stat(path); err == nil {
+								http.FileServer(http.Dir(path)).ServeHTTP(w, r)
+								return
+							}
 						}
 						log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
 						r.URL.Path = forward
