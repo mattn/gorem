@@ -42,12 +42,13 @@ func setupEntries(c *Config) {
 			log.Println(err)
 			continue
 		}
+		var hasSlashSuffix = strings.HasSuffix(entry.Path, "/")
 		if !strings.HasPrefix(entry.Path, "/") {
 			entry.Path = path.Join(c.Root, "."+entry.Path)
 		} else {
 			entry.Path = path.Join(c.Root, entry.Path)
 		}
-		if !strings.HasSuffix(entry.Path, "/") && !entry.CGI {
+		if !strings.HasSuffix(entry.Path, "/") && hasSlashSuffix {
 			entry.Path += "/"
 		}
 		if u.Scheme == "" {
@@ -156,6 +157,8 @@ func main() {
 			for _, entry := range cl[k].Entries {
 				if entry.CGI {
 					if r.URL.Path == entry.Path || strings.HasPrefix(r.URL.Path, entry.Path + "/") {
+					println(r.URL.Path)
+					println("entry=", entry.Path)
 						backend := entry.Backend
 						forward := r.URL.Path
 						if !entry.UsePath {
