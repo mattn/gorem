@@ -178,9 +178,6 @@ func main() {
 						if !entry.AheadCGI {
 							dir := filepath.Dir(entry.Backend)
 							path := filepath.Join(dir, forward)
-							println(dir)
-							println(path)
-							println(r.URL.Path)
 							if st, err := os.Stat(path); err == nil && !st.IsDir() {
 								http.FileServer(http.Dir(dir)).ServeHTTP(w, r)
 								return
