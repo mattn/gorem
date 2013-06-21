@@ -173,16 +173,19 @@ func main() {
 						if strings.HasSuffix(backend, "/") {
 							entry.proxy.(*cgi.Handler).Path = backend + forward
 						}
-						log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
-						r.URL.Path = forward
 						if !entry.AheadCGI {
 							dir := filepath.Dir(entry.Backend)
+							forward = forward[len(entry.Path):]
 							path := filepath.Join(dir, forward)
 							if st, err := os.Stat(path); err == nil && !st.IsDir() {
+								log.Printf("[%s] %s %s => %s", k, r.Method, r.URL.Path, path)
+								r.URL.Path = forward
 								http.FileServer(http.Dir(dir)).ServeHTTP(w, r)
 								return
 							}
 						}
+						r.URL.Path = forward
+						log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
 						r.Header.Set("X-Script-Name", forward)
 						entry.proxy.ServeHTTP(w, r)
 						return
