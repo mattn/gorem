@@ -115,6 +115,20 @@ func loadConfigs() (Configs, error) {
 	return cl, nil
 }
 
+func replaceElem(m []string, k, v string) []string {
+	found := false
+	for n, e := range m {
+		if strings.HasPrefix(e, k + "=") {
+			m[n] = k + "=" + v
+			found = true
+		}
+	}
+	if !found {
+		m = append(m, k + "=" + v)
+	}
+	return m
+}
+
 func main() {
 	flag.Parse()
 
@@ -171,11 +185,20 @@ func main() {
 							forward = "/"
 						}
 						if strings.HasSuffix(backend, "/") {
-							entry.proxy.(*cgi.Handler).Path = backend + forward
+							path := backend + forward
+							entry.proxy.(*cgi.Handler).Path = path
 						}
+						path := path.Join(entry.Path, forward[1:])
+						if !strings.HasSuffix(backend, "/") {
+							path += "/"
+						}
+
+						entry.proxy.(*cgi.Handler).Env =
+							replaceElem(entry.proxy.(*cgi.Handler).Env, "REQUEST_URI", path)
+						entry.proxy.(*cgi.Handler).Env =
+							replaceElem(entry.proxy.(*cgi.Handler).Env, "PATH_INFO", "")
 						if !entry.AheadCGI {
 							dir := filepath.Dir(entry.Backend)
-							forward = forward[len(entry.Path):]
 							path := filepath.Join(dir, forward)
 							if st, err := os.Stat(path); err == nil && !st.IsDir() {
 								log.Printf("[%s] %s %s => %s", k, r.Method, r.URL.Path, path)
