@@ -178,11 +178,8 @@ func main() {
 						if !entry.UsePath {
 							forward = forward[len(entry.Path):]
 						}
-						//if strings.HasSuffix(backend, "/") {
-							//entry.proxy.(*cgi.Handler).Path = path
-						//}
 						p := path.Join(entry.Path, forward)
-						if strings.HasSuffix(forward, "/") {
+						if strings.HasSuffix(r.URL.Path, "/") {
 							p += "/"
 						}
 
@@ -192,12 +189,7 @@ func main() {
 							replaceElem(entry.proxy.(*cgi.Handler).Env, "PATH_INFO", "")
 						if !entry.AheadCGI {
 							dir := filepath.Dir(entry.Backend)
-							//if len(forward) > len(entry.Path) {
-								//forward = forward[len(entry.Path):]
-							//}
-							println("JUST!", p)
 							p := filepath.Join(dir, forward)
-							println(p)
 							if st, err := os.Stat(p); err == nil && !st.IsDir() {
 								log.Printf("[%s] %s %s => %s", k, r.Method, r.URL.Path, p)
 								r.URL.Path = forward
