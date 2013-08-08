@@ -178,30 +178,28 @@ func main() {
 						if !entry.UsePath {
 							forward = forward[len(entry.Path):]
 						}
-						if !strings.HasPrefix(forward, "/") {
-							forward = "/" + forward
-						}
-						if forward == "" {
-							forward = "/"
-						}
-						if strings.HasSuffix(backend, "/") {
-							path := backend + forward
-							entry.proxy.(*cgi.Handler).Path = path
-						}
-						path := path.Join(entry.Path, forward[1:])
-						if !strings.HasSuffix(backend, "/") {
-							path += "/"
+						//if strings.HasSuffix(backend, "/") {
+							//entry.proxy.(*cgi.Handler).Path = path
+						//}
+						p := path.Join(entry.Path, forward)
+						if strings.HasSuffix(forward, "/") {
+							p += "/"
 						}
 
 						entry.proxy.(*cgi.Handler).Env =
-							replaceElem(entry.proxy.(*cgi.Handler).Env, "REQUEST_URI", path)
+							replaceElem(entry.proxy.(*cgi.Handler).Env, "REQUEST_URI", p)
 						entry.proxy.(*cgi.Handler).Env =
 							replaceElem(entry.proxy.(*cgi.Handler).Env, "PATH_INFO", "")
 						if !entry.AheadCGI {
 							dir := filepath.Dir(entry.Backend)
-							path := filepath.Join(dir, forward)
-							if st, err := os.Stat(path); err == nil && !st.IsDir() {
-								log.Printf("[%s] %s %s => %s", k, r.Method, r.URL.Path, path)
+							//if len(forward) > len(entry.Path) {
+								//forward = forward[len(entry.Path):]
+							//}
+							println("JUST!", p)
+							p := filepath.Join(dir, forward)
+							println(p)
+							if st, err := os.Stat(p); err == nil && !st.IsDir() {
+								log.Printf("[%s] %s %s => %s", k, r.Method, r.URL.Path, p)
 								r.URL.Path = forward
 								http.FileServer(http.Dir(dir)).ServeHTTP(w, r)
 								return
