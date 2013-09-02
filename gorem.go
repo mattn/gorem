@@ -172,7 +172,7 @@ func main() {
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			for _, entry := range cl[k].Entries {
 				if entry.CGI {
-					if r.URL.Path == entry.Path || strings.HasPrefix(r.URL.Path, entry.Path) {
+					if r.URL.Path == entry.Path || (r.URL.Path != "/" && strings.HasPrefix(r.URL.Path, entry.Path)) {
 						backend := entry.Backend
 						forward := r.URL.Path
 						if !entry.UsePath {
