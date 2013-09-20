@@ -208,6 +208,8 @@ func main() {
 					forward := r.URL.Path
 					if !entry.UsePath {
 						forward = forward[len(entry.Path):]
+					} else if strings.Index(forward, "/") == 0 {
+						forward = forward[1:]
 					}
 					log.Printf("[%s] %s %s => %s%s", k, r.Method, r.URL.Path, backend, forward)
 					r.URL.Path = forward
